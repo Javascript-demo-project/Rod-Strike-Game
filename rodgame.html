@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rod Strike Game</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: linear-gradient(to top, #9ddff3, #bfefff); /* Daytime sky */
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #gameCanvas {
+      background: linear-gradient(to top, #745c3a 30%, #6b4c3b 70%); /* muddy soil */
+      border: 3px solid #444;
+      margin-top: 20px;
+      box-shadow: 0 0 12px #222;
+    }
+
+    #message {
+      margin-top: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #00aa99;
+      min-height: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🌞 Rod Strike - Traditional Village Game</h2>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="message">Click and drag to throw the rod into the circle!</div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const messageBox = document.getElementById("message");
+
+    const groundY = 500;
+    const target = { x: 400, y: groundY, radiusX: 110, radiusY: 40 };
+
+    let isDragging = false;
+    let startX, startY;
+    let rod = null;
+    let standing = false;
+
+    // Load rod image
+    const rodImage = new Image();
+    rodImage.src = "https://i.imgur.com/rBzMUGj.png"; // You can replace this with a better rod texture
+
+    function drawTarget() {
+      ctx.beginPath();
+      ctx.ellipse(target.x, target.y, target.radiusX, target.radiusY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#3a241b"; // muddy dark brown
+      ctx.fill();
+      ctx.strokeStyle = "#000";
+      ctx.stroke();
+    }
+
+    function drawRod() {
+      if (!rod) return;
+
+      // Shadow
+      ctx.beginPath();
+      ctx.ellipse(rod.x, groundY + 5, 12, 5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fill();
+
+      const rodHeight = standing ? 60 : 30;
+      const rodWidth = 6;
+
+      // Use image texture instead of path
+      if (rodImage.complete) {
+        ctx.drawImage(
+          rodImage,
+          rod.x - rodWidth / 2,
+          rod.y - rodHeight,
+          rodWidth,
+          rodHeight
+        );
+      } else {
+        // fallback rectangle if image not loaded yet
+        ctx.fillStyle = "silver";
+        ctx.fillRect(rod.x - rodWidth / 2, rod.y - rodHeight, rodWidth, rodHeight);
+      }
+    }
+
+    function drawArrow(x1, y1, x2, y2) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function isInsideTarget(x, y) {
+      const dx = x - target.x;
+      const dy = y - target.y;
+      return (dx * dx) / (target.radiusX * target.radiusX) + (dy * dy) / (target.radiusY * target.radiusY) <= 1;
+    }
+
+    function updateRod() {
+      if (!rod) return;
+
+      if (standing) return;
+
+      // Gravity effect
+      rod.vy += 0.5;
+      rod.x += rod.vx;
+      rod.y += rod.vy;
+
+      // Ground collision
+      if (rod.y >= groundY) {
+        rod.y = groundY;
+        rod.vx = 0;
+        rod.vy = 0;
+
+        if (isInsideTarget(rod.x, rod.y)) {
+          messageBox.textContent = "🎯 Great shot! Rod is standing...";
+          standing = true;
+
+          setTimeout(() => {
+            rod = null;
+            standing = false;
+            messageBox.textContent = "Click and drag to throw again!";
+          }, 1500);
+        } else {
+          messageBox.textContent = "❌ Missed! Try a better angle.";
+          setTimeout(() => {
+            rod = null;
+            messageBox.textContent = "Click and drag to throw again!";
+          }, 1500);
+        }
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTarget();
+      drawRod();
+      updateRod();
+      requestAnimationFrame(gameLoop);
+    }
+
+    canvas.addEventListener("mousedown", (e) => {
+      if (rod) return;
+      isDragging = true;
+      startX = e.offsetX;
+      startY = e.offsetY;
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (isDragging) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTarget();
+        drawRod();
+        drawArrow(startX, startY, e.offsetX, e.offsetY);
+      }
+    });
+
+    canvas.addEventListener("mouseup", (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      const dx = startX - e.offsetX;
+      const dy = startY - e.offsetY;
+
+      rod = {
+        x: startX,
+        y: startY,
+        vx: -dx / 10,
+        vy: -dy / 10
+      };
+
+      messageBox.textContent = "Rod in the air...";
+    });
+
+    rodImage.onload = () => gameLoop();
+  </script>
+</body>
+</html>
